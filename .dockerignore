@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.csv
+*.zip
+*.pt
+*.onnx
+*.npz
+checkpoints/best_model.pt
+checkpoints/scaler.npz
+checkpoints/phishing_mlp.onnx
+.git/
+.gitignore
+README.md
+train.py
+train_ensemble.py
+evaluate.py
+model.py
