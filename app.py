@@ -31,6 +31,7 @@ app = FastAPI(
 
 class ClassifyRequest(BaseModel):
     url: str
+    network_features: dict[str, float] | None = None  # Optional: 14 network features
 
 
 class ClassifyResponse(BaseModel):
@@ -46,7 +47,16 @@ def health():
 
 @app.post("/classify", response_model=ClassifyResponse)
 def classify_single(req: ClassifyRequest):
-    prob = classify_url(req.url)
+    """
+    Classify a URL for phishing.
+
+    Network features are optional. If not provided, they default to -1 (missing).
+    Network features: time_response, domain_spf, asn_ip, time_domain_activation,
+    time_domain_expiration, qty_ip_resolved, qty_nameservers, qty_mx_servers,
+    ttl_hostname, tls_ssl_certificate, qty_redirects, url_google_index,
+    domain_google_index, url_shortened.
+    """
+    prob = classify_url(req.url, network_features=req.network_features)
     return ClassifyResponse(
         url=req.url,
         phishing_probability=round(prob, 4),

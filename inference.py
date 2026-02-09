@@ -1,13 +1,22 @@
 """
 Inference module for multi-view LightGBM ensemble.
 
-Loads 5 per-view LightGBM models and combines predictions via soft voting.
+Loads 6 per-view LightGBM models (url, domain, directory, file, params, network)
+and combines predictions via soft voting.
+
+Network features require external data collection (DNS, WHOIS). For URL-only
+inference, network features default to -1 (missing value marker).
 
 Usage:
     from inference import classify_url
 
+    # URL-only inference (network features = -1)
     score = classify_url("https://example.com")
     print(f"Phishing probability: {score:.4f}")
+
+    # With network features
+    network_data = {...}  # 14 network features
+    score = classify_url_with_network("https://example.com", network_data)
 """
 
 import os
@@ -15,7 +24,7 @@ import os
 import lightgbm as lgb
 import numpy as np
 
-from features import FEATURE_VIEWS, extract_features
+from features import FEATURE_VIEWS, NETWORK_FEATURE_NAMES, extract_features
 
 _ENSEMBLE_DIR = "checkpoints/ensemble"
 
@@ -45,7 +54,7 @@ def classify(
     Classify a feature vector and return phishing probability.
 
     Args:
-        features: 1D array of 97 numeric features.
+        features: 1D array of 111 numeric features (97 URL-derivable + 14 network).
         ensemble_dir: Path to ensemble model directory.
 
     Returns:
@@ -76,19 +85,40 @@ def classify_batch(
 def classify_url(
     url: str,
     ensemble_dir: str = _ENSEMBLE_DIR,
+    network_features: np.ndarray | dict[str, float] | None = None,
 ) -> float:
     """
     Classify a raw URL and return phishing probability.
 
-    Extracts 97 URL-derivable features, splits into views, and runs
-    per-view LightGBM models with soft voting.
+    Extracts 97 URL-derivable features and combines with network features
+    (if provided). Network features default to -1 (missing).
 
     Args:
         url: Raw URL string (e.g., "https://example.com/path?q=1").
         ensemble_dir: Path to ensemble model directory.
+        network_features: Optional network features (14 values) as array or dict.
+            If None, all network features are set to -1.
 
     Returns:
         Risk score between 0.0 (legitimate) and 1.0 (phishing).
     """
-    features = extract_features(url)
-    return classify(features, ensemble_dir)
+    # Extract URL-derivable features (97)
+    url_features = extract_features(url)
+
+    # Handle network features
+    if network_features is None:
+        # Use -1 as missing value marker for all network features
+        net_array = np.full(len(NETWORK_FEATURE_NAMES), -1.0, dtype=np.float32)
+    elif isinstance(network_features, dict):
+        # Convert dict to array in the correct order
+        net_array = np.array(
+            [network_features.get(name, -1.0) for name in NETWORK_FEATURE_NAMES],
+            dtype=np.float32,
+        )
+    else:
+        net_array = np.asarray(network_features, dtype=np.float32)
+
+    # Combine: 97 URL-derivable + 14 network = 111 total
+    combined_features = np.concatenate([url_features, net_array])
+
+    return classify(combined_features, ensemble_dir)

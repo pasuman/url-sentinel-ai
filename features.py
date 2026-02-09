@@ -29,14 +29,15 @@ CHAR_FEATURE_NAMES = [
 
 COMPONENTS = ["url", "domain", "directory", "file", "params"]
 
-# Build FEATURE_NAMES in the exact order of the training CSV (minus external cols)
+# Build FEATURE_NAMES in the exact order of the training CSV
+# First 98 are URL-derivable (including server_client_domain), next 14 are network features
 FEATURE_NAMES: list[str] = []
 # url: 17 char counts + qty_tld_url + length_url
 FEATURE_NAMES.extend(f"{name}_url" for name in CHAR_FEATURE_NAMES)
 FEATURE_NAMES.extend(["qty_tld_url", "length_url"])
-# domain: 17 char counts + qty_vowels_domain + domain_length + domain_in_ip
+# domain: 17 char counts + qty_vowels_domain + domain_length + domain_in_ip + server_client_domain
 FEATURE_NAMES.extend(f"{name}_domain" for name in CHAR_FEATURE_NAMES)
-FEATURE_NAMES.extend(["qty_vowels_domain", "domain_length", "domain_in_ip"])
+FEATURE_NAMES.extend(["qty_vowels_domain", "domain_length", "domain_in_ip", "server_client_domain"])
 # directory: 17 char counts + directory_length
 FEATURE_NAMES.extend(f"{name}_directory" for name in CHAR_FEATURE_NAMES)
 FEATURE_NAMES.append("directory_length")
@@ -46,18 +47,39 @@ FEATURE_NAMES.append("file_length")
 # params: 17 char counts + params_length + tld_present_params + qty_params
 FEATURE_NAMES.extend(f"{name}_params" for name in CHAR_FEATURE_NAMES)
 FEATURE_NAMES.extend(["params_length", "tld_present_params", "qty_params"])
-# global features
-FEATURE_NAMES.extend(["email_in_url", "url_shortened"])
+# global features (email_in_url only; url_shortened moved to network view)
+FEATURE_NAMES.append("email_in_url")
 
-assert len(FEATURE_NAMES) == 97, f"Expected 97 features, got {len(FEATURE_NAMES)}"
+# Network features (external - not URL-derivable, loaded from dataset)
+NETWORK_FEATURE_NAMES = [
+    "time_response",
+    "domain_spf",
+    "asn_ip",
+    "time_domain_activation",
+    "time_domain_expiration",
+    "qty_ip_resolved",
+    "qty_nameservers",
+    "qty_mx_servers",
+    "ttl_hostname",
+    "tls_ssl_certificate",
+    "qty_redirects",
+    "url_google_index",
+    "domain_google_index",
+    "url_shortened",
+]
+
+assert len(FEATURE_NAMES) == 97, f"Expected 97 URL-derivable features, got {len(FEATURE_NAMES)}"
+assert len(NETWORK_FEATURE_NAMES) == 14, f"Expected 14 network features, got {len(NETWORK_FEATURE_NAMES)}"
 
 # Feature views for multi-view ensemble — maps view name to feature indices
+# Note: indices are for the combined feature array (97 URL-derivable + 14 network = 111 total)
 FEATURE_VIEWS = {
-    "url": list(range(0, 19)) + [95],       # 20: 17 chars + qty_tld_url + length_url + email_in_url
-    "domain": list(range(19, 39)) + [96],    # 21: 17 chars + vowels + domain_length + domain_in_ip + url_shortened
-    "directory": list(range(39, 57)),         # 18: 17 chars + directory_length
-    "file": list(range(57, 75)),             # 18: 17 chars + file_length
-    "params": list(range(75, 95)),           # 20: 17 chars + params_length + tld_present_params + qty_params
+    "url": list(range(0, 19)) + [96],              # 20: 17 chars + qty_tld_url + length_url + email_in_url
+    "domain": list(range(19, 40)),                  # 21: 17 chars + vowels + domain_length + domain_in_ip + server_client_domain
+    "directory": list(range(40, 58)),               # 18: 17 chars + directory_length
+    "file": list(range(58, 76)),                   # 18: 17 chars + file_length
+    "params": list(range(76, 96)),                 # 20: 17 chars + params_length + tld_present_params + qty_params
+    "network": list(range(97, 111)),               # 14: all network features from columns 98-111 in CSV
 }
 
 _VOWELS = set("aeiouAEIOU")
@@ -148,8 +170,8 @@ def extract_features(url: str) -> np.ndarray:
     """
     Extract 97 URL-derivable features from a raw URL string.
 
-    The features match the column order of the training CSV
-    (dataset_cybersecurity_michelle.csv) after dropping the 14 external columns.
+    The features match the column order of the training CSV (columns 1-97)
+    excluding external network columns (98-111). url_shortened moved to network view.
 
     Args:
         url: Raw URL string (e.g., "https://example.com/path?q=1").
@@ -177,6 +199,9 @@ def extract_features(url: str) -> np.ndarray:
     features.append(sum(1 for c in domain if c in _VOWELS))  # qty_vowels_domain
     features.append(len(domain))  # domain_length
     features.append(_is_ip_domain(domain) if domain else 0)  # domain_in_ip
+    # server_client_domain: check if domain contains "server" or "client"
+    domain_lower = domain.lower()
+    features.append(1 if ("server" in domain_lower or "client" in domain_lower) else 0)
 
     # --- Directory and File ---
     path = parsed.path or ""
@@ -220,10 +245,7 @@ def extract_features(url: str) -> np.ndarray:
     # email_in_url
     features.append(1 if _EMAIL_RE.search(url) else 0)
 
-    # url_shortened
-    domain_lower = (parsed.hostname or "").lower()
-    # Also check with port stripped
-    features.append(1 if domain_lower in _SHORTENERS else 0)
+    # Note: url_shortened is now part of NETWORK_FEATURE_NAMES, not included here
 
     result = np.array(features, dtype=np.float32)
     assert result.shape == (97,), f"Expected 97 features, got {result.shape[0]}"

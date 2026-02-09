@@ -2,7 +2,11 @@
 Multi-view LightGBM ensemble training script.
 
 Trains separate LightGBM models per URL component group (url, domain,
-directory, file, params), then combines via soft voting.
+directory, file, params, network), then combines via soft voting.
+
+6-view ensemble as per "Explainable Multi-View Ensemble Model for Phishing Website Detection":
+- Views: url(20), domain(21), directory(18), file(18), params(20), network(14)
+- Total: 111 features (97 URL-derivable + 14 network)
 
 Usage:
     python train_ensemble.py --data dataset_cybersecurity_michelle.csv
@@ -18,8 +22,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
 
-from features import FEATURE_NAMES, FEATURE_VIEWS
-from train import EXTERNAL_COLUMNS
+from features import FEATURE_NAMES, FEATURE_VIEWS, NETWORK_FEATURE_NAMES
 
 SEED = 42
 
@@ -43,15 +46,23 @@ def main():
     df = pd.read_csv(args.data)
     print(f"Shape: {df.shape}")
 
-    drop_cols = [c for c in EXTERNAL_COLUMNS if c in df.columns]
-    if drop_cols:
-        df = df.drop(columns=drop_cols)
-        print(f"Dropped {len(drop_cols)} external columns")
+    # Build combined feature array: 97 URL-derivable + 14 network = 111 total
+    # URL-derivable features are columns 1-97 (including server_client_domain at 40)
+    # Network features are columns 98-111
+    all_feature_names = FEATURE_NAMES + NETWORK_FEATURE_NAMES
+
+    # Check if all required columns exist
+    missing = [col for col in all_feature_names if col not in df.columns]
+    if missing:
+        print(f"WARNING: Missing columns in dataset: {missing}")
+        print(f"Will proceed with available features only")
+        all_feature_names = [col for col in all_feature_names if col in df.columns]
 
     y = df["phishing"].values.astype(np.float32)
-    X = df.drop(columns=["phishing"]).values.astype(np.float32)
-    feature_names = [c for c in df.columns if c != "phishing"]
-    print(f"Features: {X.shape[1]} | Phishing: {int(y.sum())} | Legit: {int(len(y) - y.sum())}")
+    X = df[all_feature_names].values.astype(np.float32)
+
+    print(f"Features: {X.shape[1]} (97 URL-derivable + {len(NETWORK_FEATURE_NAMES)} network)")
+    print(f"Phishing: {int(y.sum())} | Legit: {int(len(y) - y.sum())}")
 
     # Shuffle and split (same seed/ratio as MLP training)
     indices = np.arange(len(X))
@@ -71,7 +82,9 @@ def main():
 
     for view_name, view_indices in FEATURE_VIEWS.items():
         print(f"\n--- Training [{view_name}] view ({len(view_indices)} features) ---")
-        view_feature_names = [FEATURE_NAMES[i] for i in view_indices]
+
+        # Get feature names for this view
+        view_feature_names = [all_feature_names[i] for i in view_indices]
 
         X_train_view = X_train[:, view_indices]
         X_val_view = X_val[:, view_indices]
@@ -170,7 +183,11 @@ def main():
     # Save view config for inference
     config = {
         "views": {name: indices for name, indices in FEATURE_VIEWS.items()},
-        "n_features": len(FEATURE_NAMES),
+        "n_features_total": len(all_feature_names),
+        "n_url_derivable": len(FEATURE_NAMES),
+        "n_network": len(NETWORK_FEATURE_NAMES),
+        "url_derivable_features": FEATURE_NAMES,
+        "network_features": NETWORK_FEATURE_NAMES,
     }
     config_path = os.path.join(args.out_dir, "config.json")
     with open(config_path, "w") as f:

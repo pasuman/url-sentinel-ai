@@ -23,8 +23,9 @@ from model import PhishingMLP
 
 SEED = 42
 
+# External/network columns that require runtime data collection (DNS, WHOIS, etc.)
+# server_client_domain is NOW URL-derivable (moved out of external)
 EXTERNAL_COLUMNS = [
-    "server_client_domain",
     "time_response",
     "domain_spf",
     "asn_ip",
@@ -38,6 +39,7 @@ EXTERNAL_COLUMNS = [
     "qty_redirects",
     "url_google_index",
     "domain_google_index",
+    "url_shortened",  # also part of network view now
 ]
 
 
