@@ -1,0 +1,81 @@
+Loading data...
+Shape: (129698, 112)
+Features: 111 (97 URL-derivable + 14 network)
+Phishing: 52152 | Legit: 77546
+Train: 103758 | Val: 25940
+
+--- Training [url] view (20 features) ---
+Training until validation scores don't improve for 20 rounds
+[50]	val's binary_logloss: 0.246093
+[100]	val's binary_logloss: 0.237974
+[150]	val's binary_logloss: 0.234921
+[200]	val's binary_logloss: 0.232821
+Did not meet early stopping. Best iteration is:
+[200]	val's binary_logloss: 0.232821
+  P: 0.8335  R: 0.9291  F1: 0.8787  AUC: 0.9670  (iter 200)
+  Saved: checkpoints/ensemble/url_model.txt
+
+--- Training [domain] view (21 features) ---
+Training until validation scores don't improve for 20 rounds
+[50]	val's binary_logloss: 0.561638
+[100]	val's binary_logloss: 0.556706
+[150]	val's binary_logloss: 0.554354
+[200]	val's binary_logloss: 0.553086
+Did not meet early stopping. Best iteration is:
+[197]	val's binary_logloss: 0.553084
+  P: 0.6672  R: 0.6728  F1: 0.6700  AUC: 0.7888  (iter 197)
+  Saved: checkpoints/ensemble/domain_model.txt
+
+--- Training [directory] view (18 features) ---
+Training until validation scores don't improve for 20 rounds
+[50]	val's binary_logloss: 0.276072
+[100]	val's binary_logloss: 0.272535
+[150]	val's binary_logloss: 0.271145
+[200]	val's binary_logloss: 0.270122
+Did not meet early stopping. Best iteration is:
+[200]	val's binary_logloss: 0.270122
+  P: 0.8535  R: 0.8700  F1: 0.8617  AUC: 0.9511  (iter 200)
+  Saved: checkpoints/ensemble/directory_model.txt
+
+--- Training [file] view (18 features) ---
+Training until validation scores don't improve for 20 rounds
+[50]	val's binary_logloss: 0.33977
+[100]	val's binary_logloss: 0.338179
+[150]	val's binary_logloss: 0.337861
+Early stopping, best iteration is:
+[134]	val's binary_logloss: 0.337777
+  P: 0.7384  R: 0.9637  F1: 0.8361  AUC: 0.9127  (iter 134)
+  Saved: checkpoints/ensemble/file_model.txt
+
+--- Training [params] view (20 features) ---
+Training until validation scores don't improve for 20 rounds
+[50]	val's binary_logloss: 0.61284
+[100]	val's binary_logloss: 0.611467
+Early stopping, best iteration is:
+[127]	val's binary_logloss: 0.611199
+  P: 0.9562  R: 0.2165  F1: 0.3530  AUC: 0.6079  (iter 127)
+  Saved: checkpoints/ensemble/params_model.txt
+
+--- Training [network] view (14 features) ---
+Training until validation scores don't improve for 20 rounds
+[50]	val's binary_logloss: 0.379074
+[100]	val's binary_logloss: 0.344755
+[150]	val's binary_logloss: 0.32797
+[200]	val's binary_logloss: 0.31377
+Did not meet early stopping. Best iteration is:
+[200]	val's binary_logloss: 0.31377
+  P: 0.8083  R: 0.8768  F1: 0.8412  AUC: 0.9429  (iter 200)
+  Saved: checkpoints/ensemble/network_model.txt
+
+=== Ensemble (soft voting) ===
+  P: 0.8674  R: 0.9627  F1: 0.9126  AUC: 0.9863
+
+=== Per-View Summary ===
+         url: F1=0.8787  AUC=0.9670  (20 features)
+      domain: F1=0.6700  AUC=0.7888  (21 features)
+   directory: F1=0.8617  AUC=0.9511  (18 features)
+        file: F1=0.8361  AUC=0.9127  (18 features)
+      params: F1=0.3530  AUC=0.6079  (20 features)
+     network: F1=0.8412  AUC=0.9429  (14 features)
+
+Config saved to checkpoints/ensemble/config.json
