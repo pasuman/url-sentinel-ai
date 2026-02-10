@@ -143,21 +143,31 @@ Updated FastAPI service to accept optional network features:
 
 ---
 
-## Performance Expectations
+## Actual Performance Results
 
-Based on paper results (Table 2):
+Trained on dataset_cybersecurity_michelle.csv (129,698 samples, 20% validation split):
 
-| Model | Accuracy | Precision | Recall | F1-score | ROC AUC | PR AUC |
-|-------|----------|-----------|--------|----------|---------|--------|
-| **URL** | 0.9040 | 0.8793 | 0.8824 | **0.8808** | 0.9690 | 0.9574 |
-| **Domain** | 0.7419 | 0.7016 | 0.6230 | **0.6600** | 0.7927 | 0.7348 |
-| **Directory** | 0.8867 | 0.8639 | 0.8526 | **0.8582** | 0.9517 | 0.9386 |
-| **File** | 0.8489 | 0.7412 | 0.9593 | **0.8362** | 0.9132 | 0.8699 |
-| **Params** | 0.6817 | 0.9526 | 0.2194 | **0.3567** | 0.6092 | 0.7455 |
-| **Network** | 0.9525 | 0.9420 | 0.9397 | **0.9408** | **0.9868** | 0.9822 |
-| **Ensemble** | **0.9600** | **0.9609** | **0.9387** | **0.9497** | **0.9923** | **0.9901** |
+| Model | Precision | Recall | F1-score | ROC AUC |
+|-------|-----------|--------|----------|---------|
+| **URL** | 0.8335 | 0.9291 | **0.8787** | 0.9670 |
+| **Domain** | 0.6672 | 0.6728 | **0.6700** | 0.7888 |
+| **Directory** | 0.8535 | 0.8700 | **0.8617** | 0.9511 |
+| **File** | 0.7384 | 0.9637 | **0.8361** | 0.9127 |
+| **Params** | 0.9562 | 0.2165 | **0.3530** | 0.6079 |
+| **Network** | 0.8083 | 0.8768 | **0.8412** | 0.9429 |
+| **Ensemble** | **0.8674** | **0.9627** | **0.9126** | **0.9863** |
 
-**Key Insight:** Network view alone outperforms all other views, but ensemble achieves best overall performance.
+**Cross-Dataset Evaluation** (dataset_phishing.csv, 11,430 samples):
+- Precision: 0.6694, Recall: 0.7757, F1: 0.7187, AUC: 0.7911
+- Performance drop due to distribution shift and missing network features
+
+**Key Insights:**
+- Network view is strong individual predictor (F1=0.8412, AUC=0.9429)
+- Ensemble achieves near-paper performance (F1=0.9126 vs paper 0.9497)
+- Cross-dataset generalization requires network features and domain-specific tuning
+
+**Paper Baseline (for reference):**
+- Ensemble: Accuracy=96.0%, Precision=0.9609, Recall=0.9387, F1=0.9497, AUC=0.9923
 
 ---
 

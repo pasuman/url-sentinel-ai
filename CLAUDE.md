@@ -19,10 +19,13 @@ Pipeline: Raw URL → `features.py` (97 URL features) + network data (14 feature
 - `app.py` — FastAPI service (`POST /classify`, `GET /health`)
 - `features.py` — URL → 97 URL-derivable features + 14 network features (`extract_features`, `FEATURE_NAMES`, `NETWORK_FEATURE_NAMES`, `FEATURE_VIEWS`)
 - `inference.py` — LightGBM ensemble inference with optional network features (`classify_url`, `classify`, `classify_batch`)
+- `inference_improved.py` — Improved inference with Korean domain whitelist and weighted voting (for production)
 - `train_ensemble.py` — Training script (6 per-view LightGBM models)
 - `explainability.py` — SHAP-based feature importance analysis and visualization
-- `evaluate.py` — Cross-dataset evaluation
+- `evaluate.py` — Cross-dataset evaluation (handles missing network features)
+- `test_improvements.py` — Compare original vs improved inference on Korean URLs
 - `checkpoints/ensemble/` — Trained model files (6 models: url, domain, directory, file, params, network)
+- `FALSE_POSITIVE_ANALYSIS.md` — Analysis of Korean URL false positives and improvement roadmap
 
 ## Commands
 
@@ -55,12 +58,26 @@ python evaluate.py --test dataset_phishing.csv
 Runtime: lightgbm, numpy (<2), fastapi, uvicorn, shap, matplotlib (see `requirements.txt`).
 Training: + pandas, scikit-learn.
 
+## Performance
+
+**Training Results** (dataset_cybersecurity_michelle.csv, 129K samples):
+- Ensemble: P=0.8674, R=0.9627, F1=0.9126, AUC=0.9863
+- Network view: F1=0.8412, AUC=0.9429 (strong individual predictor)
+
+**Cross-Dataset Evaluation** (dataset_phishing.csv, 11K samples):
+- F1=0.7187, AUC=0.7911 (without network features)
+- Performance drop due to distribution shift and missing network data
+
+**Korean URL False Positives:**
+- Original: 75% false positive rate (9/12 tested)
+- Improved (with whitelist + weighted voting): 0% false positive rate
+
 ## Notes
 
 - Missing URL components (no path, no query) use -1 sentinel values; LightGBM handles these natively
 - Network features default to -1 when unavailable (URL-only inference mode)
-- NETWORK view is the strongest individual predictor (paper: F1=0.9408, AUC=0.9868)
-- Expected ensemble performance (paper): Accuracy=96.0%, F1=0.949, AUC=0.9923
+- **Network features are critical**: Collect DNS/WHOIS/SSL via Spring server for best performance
+- Korean domains benefit from `inference_improved.py` with weighted voting and whitelist
 - `model.py` and `train.py` are the old MLP approach, kept as reference
 - Docker image requires `libgomp1` for LightGBM's OpenMP support
 
