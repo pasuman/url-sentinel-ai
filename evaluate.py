@@ -20,7 +20,7 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
-from features import extract_features
+from features import extract_features, NETWORK_FEATURE_NAMES
 from inference import classify_batch, load_ensemble
 
 
@@ -47,11 +47,15 @@ def main():
     y = labels.values.astype(np.float32)
     print(f"Phishing: {int(y.sum())} | Legit: {int(len(y) - y.sum())}")
 
-    # Extract features
+    # Extract features (97 URL-derivable)
     print("Extracting features...")
     urls = df[args.url_col].values
-    features = np.stack([extract_features(u) for u in urls])
-    print(f"Features shape: {features.shape}")
+    url_features = np.stack([extract_features(u) for u in urls])
+
+    # Pad with -1 for 14 network features (not available in external dataset)
+    network_padding = np.full((len(url_features), len(NETWORK_FEATURE_NAMES)), -1.0, dtype=np.float32)
+    features = np.concatenate([url_features, network_padding], axis=1)
+    print(f"Features shape: {features.shape} (97 URL + 14 network as -1)")
 
     # Load ensemble and run inference
     print("Running inference...")
